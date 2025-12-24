@@ -152,7 +152,7 @@ class PaymentSidebar {
     if (this.isProcessing) return;
 
     const payKey = document.getElementById('payKey').value.trim();
-    const remark = document.getElementById('remark').value.trim();
+    const remark = "";
 
     // 验证密码
     if (!/^\d{6}$/.test(payKey)) {
