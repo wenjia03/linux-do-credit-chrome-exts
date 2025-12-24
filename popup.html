@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINUX DO Credit</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1 class="title">LINUX DO Credit</h1>
+        <div id="userInfo" class="user-info" style="display: none;">
+          <span id="username" class="username"></span>
+          <span id="trustLevel" class="trust-level"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Not Logged In -->
+    <div id="notLoggedIn" class="not-logged-in" style="display: none;">
+      <div class="info-card">
+        <svg class="info-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+        <h2>未检测到登录状态</h2>
+        <p>请先在 credit.linux.do 网站登录</p>
+        <button id="openWebsiteBtn" class="btn btn-primary">打开网站登录</button>
+        <button id="recheckBtn" class="btn btn-secondary">重新检测</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" style="display: none;">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">概览</button>
+        <button class="tab-btn" data-tab="transactions">交易记录</button>
+        <button class="tab-btn" data-tab="settings">设置</button>
+      </div>
+
+      <!-- Overview Tab -->
+      <div id="overviewTab" class="tab-content active">
+        <div class="card">
+          <div class="card-header">
+            <h3>账户信息</h3>
+          </div>
+          <div class="card-body">
+            <div class="balance-display">
+              <div class="balance-label">当前余额</div>
+              <div class="balance-amount" id="balanceAmount">--</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>快速操作</h3>
+          </div>
+          <div class="card-body">
+            <button id="openDashboardBtn" class="btn btn-primary full-width">
+              打开控制面板
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transactions Tab -->
+      <div id="transactionsTab" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>最近交易</h3>
+            <button id="refreshTransactionsBtn" class="btn-icon" title="刷新">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="transactionsList" class="transactions-list">
+              <div class="empty-state">暂无交易记录</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settingsTab" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>支付密码管理</h3>
+          </div>
+          <div class="card-body">
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">记住支付密码</div>
+                <div class="setting-desc">使用生物识别安全存储密码</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="rememberPasswordToggle">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div id="passwordSection" style="display: none;">
+              <div class="form-group">
+                <label for="paymentPassword">支付密码 (6位数字)</label>
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="paymentPassword"
+                    class="input"
+                    placeholder="输入6位数字密码"
+                    maxlength="6"
+                    pattern="[0-9]{6}">
+                  <button id="togglePasswordBtn" class="btn-icon" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <button id="savePasswordBtn" class="btn btn-primary full-width">保存密码</button>
+            </div>
+
+            <div id="passwordSavedSection" style="display: none;">
+              <div class="success-message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>密码已安全保存</span>
+              </div>
+              <button id="clearPasswordBtn" class="btn btn-danger full-width">清除已保存的密码</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>关于</h3>
+          </div>
+          <div class="card-body">
+            <div class="about-info">
+              <p><strong>版本:</strong> 1.0.0</p>
+              <p><strong>描述:</strong> 轻量级 LINUX DO Credit 支付插件</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Transaction Detail Modal -->
+    <div id="transactionDetailModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>交易详情</h3>
+          <button id="closeModalBtn" class="modal-close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="transactionDetailContent">
+          <!-- Detail content will be inserted here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

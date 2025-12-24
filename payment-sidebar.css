@@ -1,0 +1,400 @@
+/* Payment Sidebar CSS with Animations */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f7fa;
+  color: #333;
+  width: 400px;
+  min-height: 600px;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Payment Container */
+.payment-container {
+  background: white;
+  min-height: 100vh;
+}
+
+.payment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.payment-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s;
+  padding: 4px;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+/* Payment Info */
+.payment-info {
+  padding: 24px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.amount-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.amount-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.amount-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+
+.currency {
+  font-size: 24px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.amount {
+  font-size: 36px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.product-section {
+  text-align: center;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.product-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.product-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* Payment Form */
+.payment-form {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.password-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.password-input {
+  padding-right: 48px;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+  transition: color 0.3s;
+}
+
+.toggle-btn:hover {
+  color: #667eea;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-pay {
+  background: #667eea;
+  color: white;
+  margin-bottom: 12px;
+}
+
+.btn-pay:hover:not(:disabled) {
+  background: #5a67d8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-pay:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-cancel {
+  background: white;
+  color: #666;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-cancel:hover {
+  background: #f9fafb;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5a67d8;
+}
+
+.btn-secondary {
+  background: white;
+  color: #666;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* Result Screens */
+.result-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: white;
+}
+
+.result-content {
+  text-align: center;
+  max-width: 320px;
+}
+
+/* Success Animation */
+.success-animation {
+  margin-bottom: 24px;
+}
+
+.checkmark {
+  width: 100px;
+  height: 100px;
+  display: block;
+  margin: 0 auto;
+}
+
+.checkmark-circle {
+  stroke-width: 2;
+  stroke: #10b981;
+  stroke-miterlimit: 10;
+  animation: fill 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
+}
+
+.checkmark-check {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+  stroke: #10b981;
+  stroke-width: 3;
+}
+
+@keyframes stroke {
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes scale {
+  0%, 100% {
+    transform: none;
+  }
+  50% {
+    transform: scale3d(1.1, 1.1, 1);
+  }
+}
+
+@keyframes fill {
+  100% {
+    fill: rgba(16, 185, 129, 0.1);
+  }
+}
+
+/* Error Animation */
+.error-animation {
+  margin-bottom: 24px;
+}
+
+.error-mark {
+  width: 100px;
+  height: 100px;
+  display: block;
+  margin: 0 auto;
+}
+
+.error-circle {
+  stroke-width: 2;
+  stroke: #ef4444;
+  stroke-miterlimit: 10;
+  animation: fillError 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
+}
+
+.error-cross {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+  stroke: #ef4444;
+  stroke-width: 3;
+}
+
+@keyframes fillError {
+  100% {
+    fill: rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* Result Text */
+.result-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.result-message {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+/* Redirect Section */
+.redirect-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.redirect-section p {
+  margin-bottom: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+.redirect-section .btn {
+  margin-bottom: 8px;
+}
+
+.redirect-section .btn:last-child {
+  margin-bottom: 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.checkmark.animate {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.error-mark.animate {
+  animation: fadeIn 0.5s ease-out;
+}

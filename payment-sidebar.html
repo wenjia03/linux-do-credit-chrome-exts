@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>支付确认</title>
+  <link rel="stylesheet" href="payment-sidebar.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Payment Form -->
+    <div id="paymentForm" class="payment-container">
+      <div class="payment-header">
+        <h2>支付确认</h2>
+        <button id="closeBtn" class="close-btn" title="取消">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="payment-info">
+        <div class="amount-section">
+          <div class="amount-label">支付金额</div>
+          <div class="amount-value">
+            <span class="currency">LDC </span>
+            <span id="paymentAmount" class="amount">0.00</span>
+          </div>
+        </div>
+
+        <div class="product-section">
+          <div class="product-label">商品/服务</div>
+          <div id="productName" class="product-name">--</div>
+        </div>
+      </div>
+
+      <div class="payment-form">
+        <div class="form-group">
+          <label for="payKey">支付密码</label>
+          <div class="password-input-group">
+            <input
+              type="password"
+              id="payKey"
+              class="input password-input"
+              placeholder="请输入6位数字密码"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              autocomplete="off">
+            <button id="togglePassword" class="toggle-btn" type="button">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="remark">备注 (可选)</label>
+          <input
+            type="text"
+            id="remark"
+            class="input"
+            placeholder="支付备注"
+            maxlength="100">
+        </div>
+
+        <button id="payButton" class="btn btn-pay">
+          <span class="button-text">确认支付</span>
+          <span id="loadingSpinner" class="spinner" style="display: none;"></span>
+        </button>
+
+        <button id="cancelButton" class="btn btn-cancel">取消</button>
+      </div>
+    </div>
+
+    <!-- Success Animation -->
+    <div id="successScreen" class="result-screen" style="display: none;">
+      <div class="result-content">
+        <div class="success-animation">
+          <svg class="checkmark" viewBox="0 0 52 52">
+            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+          </svg>
+        </div>
+
+        <h2 class="result-title">支付成功!</h2>
+        <div id="successMessage" class="result-message"></div>
+
+        <div id="redirectSection" class="redirect-section" style="display: none;">
+          <p>即将跳转到商家页面...</p>
+          <button id="redirectNowBtn" class="btn btn-primary">立即跳转</button>
+          <button id="skipRedirectBtn" class="btn btn-secondary">稍后查看</button>
+        </div>
+
+        <button id="closeSuccessBtn" class="btn btn-primary" style="display: none;">完成</button>
+      </div>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="errorScreen" class="result-screen error" style="display: none;">
+      <div class="result-content">
+        <div class="error-animation">
+          <svg class="error-mark" viewBox="0 0 52 52">
+            <circle class="error-circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="error-cross" fill="none" d="M16 16 36 36 M36 16 16 36"/>
+          </svg>
+        </div>
+
+        <h2 class="result-title">支付失败</h2>
+        <div id="errorMessage" class="result-message"></div>
+
+        <button id="retryBtn" class="btn btn-primary">重试</button>
+        <button id="closeErrorBtn" class="btn btn-secondary">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="payment-sidebar.js"></script>
+</body>
+</html>

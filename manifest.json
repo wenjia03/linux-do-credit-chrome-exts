@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "LINUX DO Credit Payment",
+  "version": "1.0.0",
+  "description": "轻量级 LINUX DO Credit 支付插件",
+  "permissions": [
+    "storage",
+    "tabs",
+    "cookies",
+    "webNavigation",
+    "scripting",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://*.linux.do/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LINUX DO Credit",
+    "default_icon": {
+      "16": "icon/icon16.png",
+      "32": "icon/icon32.png",
+      "48": "icon/icon48.png",
+      "128": "icon/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon/icon16.png",
+    "32": "icon/icon32.png",
+    "48": "icon/icon48.png",
+    "128": "icon/icon128.png"
+  }
+}
