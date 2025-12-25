@@ -13,8 +13,11 @@
       <div class="header-content">
         <h1 class="title">LINUX DO Credit</h1>
         <div id="userInfo" class="user-info" style="display: none;">
-          <span id="username" class="username"></span>
-          <span id="trustLevel" class="trust-level"></span>
+          <img id="userAvatar" class="user-avatar" style="display: none;" alt="Avatar">
+          <div class="user-details">
+            <span id="username" class="username"></span>
+            <span id="trustLevel" class="trust-level"></span>
+          </div>
         </div>
       </div>
     </header>
@@ -46,8 +49,14 @@
         <div class="card">
           <div class="card-header">
             <h3>账户信息</h3>
+            <button id="refreshUserInfoBtn" class="btn-icon" title="刷新">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+            </button>
           </div>
           <div class="card-body">
+            <div id="userUid" class="uid-display" style="display: none;"></div>
             <div class="balance-display">
               <div class="balance-label">当前余额</div>
               <div class="balance-amount" id="balanceAmount">--</div>
@@ -60,7 +69,13 @@
             <h3>快速操作</h3>
           </div>
           <div class="card-body">
-            <button id="openDashboardBtn" class="btn btn-primary full-width">
+            <button id="transferBtn" class="btn btn-primary full-width" style="margin-bottom: 12px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+              转账
+            </button>
+            <button id="openDashboardBtn" class="btn btn-secondary full-width">
               打开控制面板
             </button>
           </div>
@@ -88,6 +103,25 @@
 
       <!-- Settings Tab -->
       <div id="settingsTab" class="tab-content">
+        <!-- Update Notice -->
+        <div id="updateNotice" class="card" style="display: none;">
+          <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px 8px 0 0;">
+            <h3 style="margin: 0; color: white;">发现新版本</h3>
+          </div>
+          <div class="card-body">
+            <div style="margin-bottom: 12px;">
+              <span style="color: #666; font-size: 13px;">当前版本：</span>
+              <span id="currentVersion" style="font-weight: 600; color: #333;">--</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <span style="color: #666; font-size: 13px;">最新版本：</span>
+              <span id="latestVersion" style="font-weight: 600; color: #667eea;">--</span>
+            </div>
+            <div id="releaseNotes" style="margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 6px; max-height: 200px; overflow-y: auto; font-size: 13px; line-height: 1.6; white-space: pre-wrap;"></div>
+            <button id="goToReleaseBtn" class="btn btn-primary full-width">前往下载</button>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-header">
             <h3>支付密码管理</h3>
@@ -145,8 +179,9 @@
           </div>
           <div class="card-body">
             <div class="about-info">
-              <p><strong>版本:</strong> 1.0.0</p>
+              <p><strong>版本:</strong> <span id="currentVersionDisplay">--</span></p>
               <p><strong>描述:</strong> 轻量级 LINUX DO Credit 支付插件</p>
+              <button id="checkUpdateBtn" class="btn btn-secondary full-width" style="margin-top: 12px;">检查更新</button>
             </div>
           </div>
         </div>
@@ -170,6 +205,97 @@
         </div>
         <div class="modal-body" id="transactionDetailContent">
           <!-- Detail content will be inserted here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transferModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>转账</h3>
+          <button id="closeTransferModalBtn" class="modal-close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="recipientUsername">收款方用户名 *</label>
+            <div class="input-group">
+              <input
+                type="text"
+                id="recipientUsername"
+                class="input"
+                placeholder="请输入收款方用户名"
+                required>
+              <button id="fetchUserIdBtn" class="btn btn-secondary" type="button" style="white-space: nowrap;">
+                获取ID
+              </button>
+            </div>
+            <div id="userIdDisplay" style="display: none; margin-top: 8px; padding: 8px 12px; background: #f0f9ff; border-radius: 6px; font-size: 13px;">
+              <span style="color: #0369a1; font-weight: 500;">用户ID:</span>
+              <span id="userIdValue" style="color: #0c4a6e; font-weight: 600; margin-left: 6px;"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="transferAmount">转账金额 (LDC) *</label>
+            <input
+              type="number"
+              id="transferAmount"
+              class="input"
+              placeholder="请输入转账金额"
+              min="0.01"
+              step="0.01"
+              required>
+          </div>
+
+          <div class="form-group">
+            <label for="transferRemark">备注（可选）</label>
+            <input
+              type="text"
+              id="transferRemark"
+              class="input"
+              placeholder="请输入转账备注"
+              maxlength="100">
+          </div>
+
+          <div id="transferPasswordSection" class="form-group">
+            <label for="transferPayKey">支付密码 (6位数字) *</label>
+            <div class="input-group">
+              <input
+                type="password"
+                id="transferPayKey"
+                class="input"
+                placeholder="请输入支付密码"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                required>
+              <button id="toggleTransferPasswordBtn" class="btn-icon" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="transferAuthSection" style="display: none;">
+            <div class="success-message">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              </svg>
+              <span>使用已保存的密码</span>
+            </div>
+          </div>
+
+          <button id="confirmTransferBtn" class="btn btn-primary full-width">
+            确认转账
+          </button>
         </div>
       </div>
     </div>

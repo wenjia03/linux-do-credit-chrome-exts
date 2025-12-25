@@ -293,6 +293,185 @@ async function processPayment(paymentData) {
   }
 }
 
+async function processTransfer(transferData) {
+  const { recipientUsername, recipientUserId, amount, payKey, remark } = transferData;
+
+  try {
+    // 构建请求体
+    const requestBody = {
+      recipient_username: recipientUsername,
+      amount: amount,
+      pay_key: payKey,
+      remark: remark || ''
+    };
+
+    // 如果提供了用户ID，则添加到请求中
+    if (recipientUserId) {
+      requestBody.recipient_id = recipientUserId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/payment/transfer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify(requestBody)
+    });
+
+    const result = await response.json();
+
+    // 判断转账成功：error_msg 为空字符串表示成功
+    if (result.error_msg === "" || !result.error_msg) {
+      // 保存交易记录
+      if (result.data) {
+        await saveTransaction(result.data);
+      }
+
+      return {
+        success: true,
+        data: result.data || {}
+      };
+    } else {
+      // error_msg 有内容，表示转账失败
+      const errorMsg = result.error_msg;
+      const errorCode = result.code;
+
+      // 根据错误码提供更友好的错误提示
+      let friendlyMsg = errorMsg;
+      if (errorCode === 10007) {
+        friendlyMsg = '支付密码错误，请重新输入';
+      } else if (errorCode === 10005) {
+        friendlyMsg = '余额不足，请先充值';
+      } else if (errorCode === 10008) {
+        friendlyMsg = '订单已过期';
+      } else if (errorCode === 10009) {
+        friendlyMsg = '已超出每日限额';
+      } else if (errorCode === 10010) {
+        friendlyMsg = '收款方用户不存在';
+      }
+
+      throw new Error(friendlyMsg);
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message || '网络错误，请稍后重试'
+    };
+  }
+}
+
+async function fetchLinuxDoUserInfo(username) {
+  try {
+    const response = await fetch(`https://linux.do/u/${username}.json`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('用户不存在');
+      } else if (response.status === 403) {
+        throw new Error('Linux.do 接口受保护，获取失败');
+      } else {
+        throw new Error(`HTTP ${response.status}: 获取用户信息失败`);
+      }
+    }
+
+    const result = await response.json();
+
+    if (result && result.user && result.user.id) {
+      return {
+        success: true,
+        data: {
+          id: result.user.id,
+          username: result.user.username,
+          name: result.user.name
+        }
+      };
+    } else {
+      throw new Error('无效的用户数据');
+    }
+  } catch (error) {
+    console.error('Failed to fetch Linux.do user info:', error);
+    return {
+      success: false,
+      error: error.message || '获取用户信息失败'
+    };
+  }
+}
+
+// ============================================
+// 检查更新
+// ============================================
+async function checkForUpdates() {
+  try {
+    console.log("Testing GitHub API for latest release info...");
+    // 公共机场API会有限制，改用直接获取 manifest.json 的方式
+    const response = await fetch('https://raw.githubusercontent.com/wenjia03/linux-do-credit-chrome-exts/refs/heads/main/manifest.json', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API 请求失败: ${response.status}`);
+    }
+
+    const release = await response.json();
+
+    // 获取当前版本
+    const manifest = chrome.runtime.getManifest();
+    const currentVersion = manifest.version;
+    const latestVersion = release.version.replace(/^v/, ''); // 移除 v 前缀
+
+    console.log('Current version:', currentVersion);
+    console.log('Latest version:', latestVersion);
+
+    // 比较版本
+    const needsUpdate = compareVersions(latestVersion, currentVersion) > 0;
+
+    return {
+      success: true,
+      needsUpdate: needsUpdate,
+      currentVersion: currentVersion,
+      latestVersion: latestVersion,
+      // releaseInfo: {
+      //   name: release.name,
+      //   tagName: release.tag_name,
+      //   body: release.body,
+      //   publishedAt: release.published_at,
+      //   htmlUrl: release.html_url
+      // }
+    };
+  } catch (error) {
+    console.error('Failed to check for updates:', error);
+    return {
+      success: false,
+      error: error.message || '检查更新失败'
+    };
+  }
+}
+
+// 版本号比较函数
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+
+    if (part1 > part2) return 1;
+    if (part1 < part2) return -1;
+  }
+
+  return 0;
+}
+
 // ============================================
 // 5. WebAuthn 密码管理
 // ============================================
@@ -387,6 +566,52 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'processPayment':
       processPayment(data).then(sendResponse);
+      return true;
+
+    case 'processTransfer':
+      processTransfer(data).then(sendResponse);
+      return true;
+
+    case 'fetchLinuxDoUserInfo':
+      fetchLinuxDoUserInfo(data.username).then(sendResponse);
+      return true;
+
+    case 'openTransferPage':
+      // 保存转账信息
+      chrome.storage.local.set({
+        pendingTransfer: {
+          username: data.username,
+          userId: data.userId,
+          timestamp: Date.now()
+        }
+      }).then(() => {
+        // 打开转账页面
+        chrome.windows.create({
+          url: chrome.runtime.getURL('transfer.html'),
+          type: 'popup',
+          width: 400,
+          height: 600,
+          focused: true
+        });
+        sendResponse({ success: true });
+      });
+      return true;
+
+    case 'getPendingTransfer':
+      chrome.storage.local.get('pendingTransfer').then(result => {
+        console.log('Pending transfer:', result.pendingTransfer);
+        sendResponse(result.pendingTransfer);
+      });
+      return true;
+
+    case 'clearPendingTransfer':
+      chrome.storage.local.remove('pendingTransfer').then(() => {
+        sendResponse({ success: true });
+      });
+      return true;
+
+    case 'checkForUpdates':
+      checkForUpdates().then(sendResponse);
       return true;
 
     case 'savePassword':

@@ -19,6 +19,134 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// ============================================
+// Linux.do 用户页面转账按钮注入
+// ============================================
+function injectTransferButton() {
+  // 检查是否在 Linux.do 用户页面
+  if (!window.location.hostname.includes('linux.do')) return;
+  if (!window.location.pathname.startsWith('/u/')) return;
+
+  // 从 URL 中提取用户名
+  const match = window.location.pathname.match(/^\/u\/([^\/]+)/);
+  if (!match) return;
+
+  const username = match[1];
+
+  // 查找目标元素
+  const targetSelector = '#main-outlet > div:nth-child(3) > section > section > div > div > section > ul';
+  const targetElement = document.querySelector(targetSelector);
+
+  if (!targetElement) {
+    console.log('Transfer button target element not found');
+    return;
+  }
+
+  // 检查是否已经注入
+  if (document.getElementById('ldo-transfer-button')) {
+    return;
+  }
+
+  // 创建转账按钮列表项
+  const transferLi = document.createElement('li');
+  transferLi.style.cssText = `
+    margin-top: 8px;
+    padding: 0;
+  `;
+
+  const transferButton = document.createElement('button');
+  transferButton.id = 'ldo-transfer-button';
+  transferButton.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+    </svg>
+    向 ${username} 流转LDC
+  `;
+  transferButton.style.cssText = `
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  `;
+
+  // 添加悬停效果
+  transferButton.addEventListener('mouseenter', () => {
+    transferButton.style.transform = 'translateY(-1px)';
+    transferButton.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.4)';
+  });
+
+  transferButton.addEventListener('mouseleave', () => {
+    transferButton.style.transform = 'translateY(0)';
+    transferButton.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.3)';
+  });
+
+  // 点击事件
+  transferButton.addEventListener('click', async () => {
+    // 获取用户ID
+    try {
+      const response = await fetch(`https://linux.do/u/${username}.json`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user info');
+      }
+
+      const data = await response.json();
+      const userId = data.user?.id;
+
+      // 保存转账信息并打开转账页面
+      chrome.runtime.sendMessage({
+        action: 'openTransferPage',
+        data: {
+          username: username,
+          userId: userId
+        }
+      });
+    } catch (error) {
+      console.error('Failed to get user ID:', error);
+      // 即使获取ID失败，也可以只用用户名打开转账页面
+      chrome.runtime.sendMessage({
+        action: 'openTransferPage',
+        data: {
+          username: username,
+          userId: null
+        }
+      });
+    }
+  });
+
+  transferLi.appendChild(transferButton);
+  targetElement.appendChild(transferLi);
+
+  console.log(`Injected transfer button for user: ${username}`);
+}
+
+// 初始化时尝试注入
+setTimeout(() => {
+  injectTransferButton();
+}, 1000);
+
+// 监听页面变化（用于 SPA 路由变化）
+const urlObserver = new MutationObserver(() => {
+  setTimeout(() => {
+    injectTransferButton();
+  }, 500);
+});
+
+urlObserver.observe(document.body, {
+  childList: true,
+  subtree: true
+});
+
+// ============================================
+// 原有的支付相关功能
+// ============================================
+
 // Create quick payment from selected text
 function createQuickPayment(amount) {
   const numericAmount = parseFloat(amount.replace(/[^\d.]/g, ''));
