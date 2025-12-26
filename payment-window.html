@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>支付确认</title>
+  <title>流转确认</title>
   <link rel="stylesheet" href="payment-window.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <!-- Payment Form -->
     <div id="paymentForm" class="payment-container">
       <div class="payment-header">
-        <h2>支付确认</h2>
+        <h2>流转确认</h2>
         <button id="closeBtn" class="close-btn" title="取消">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/>
@@ -22,7 +22,7 @@
 
       <div class="payment-info">
         <div class="amount-section">
-          <div class="amount-label">支付金额</div>
+          <div class="amount-label">流转金额</div>
           <div class="amount-value">
             <span class="currency">LDC </span>
             <span id="paymentAmount" class="amount">0.00</span>
@@ -37,7 +37,7 @@
 
       <div class="payment-form">
         <div class="form-group">
-          <label for="payKey">支付密码</label>
+          <label for="payKey">流转密码</label>
           <div class="password-input-group">
             <input
               type="password"
@@ -62,12 +62,12 @@
             type="text"
             id="remark"
             class="input"
-            placeholder="支付备注"
+            placeholder="流转备注"
             maxlength="100">
         </div>
 
         <button id="payButton" class="btn btn-pay">
-          <span class="button-text">确认支付</span>
+          <span class="button-text">确认流转</span>
           <span id="loadingSpinner" class="spinner" style="display: none;"></span>
         </button>
 
@@ -85,7 +85,7 @@
           </svg>
         </div>
 
-        <h2 class="result-title">支付成功!</h2>
+        <h2 class="result-title">流转成功!</h2>
         <div id="successMessage" class="result-message"></div>
 
         <div id="redirectSection" class="redirect-section" style="display: none;">
@@ -108,7 +108,7 @@
           </svg>
         </div>
 
-        <h2 class="result-title">支付失败</h2>
+        <h2 class="result-title">流转失败</h2>
         <div id="errorMessage" class="result-message"></div>
 
         <button id="retryBtn" class="btn btn-primary">重试</button>

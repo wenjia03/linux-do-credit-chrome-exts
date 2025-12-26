@@ -210,7 +210,7 @@ class TransferPage {
       payKey = document.getElementById('payKey')?.value.trim();
 
       if (!/^\d{6}$/.test(payKey)) {
-        this.showError('请输入6位数字支付密码');
+        this.showError('请输入6位数字流转密码');
         return;
       }
 

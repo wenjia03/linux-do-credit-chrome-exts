@@ -9,63 +9,99 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // ============================================
-// 2. URL 拦截 - 监听支付页面访问
+// 2. URL 拦截 - 监听流转页面访问
 // ============================================
 // 防止重复拦截的标志集合
 const processingTokens = new Set();
 
 // 使用 webNavigation API 进行更可靠的拦截
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.frameId === 0 && details.url.startsWith('https://credit.linux.do/paying/online')) {
-    const url = new URL(details.url);
-    const token = url.searchParams.get('token');
+  if (details.frameId !== 0) return;
 
+  const url = new URL(details.url);
+
+  // 明确区分两种类型的支付链接
+  // 类型1: /paying/online?token=xxx (payment-links)
+  if (url.pathname === '/paying/online' && url.searchParams.has('token')) {
+    const token = url.searchParams.get('token');
     if (token && !processingTokens.has(token)) {
-      console.log('WebNavigation intercepted payment URL:', token);
-      // 拦截并处理支付
-      handlePaymentInterception(details.tabId, token, details.url);
+      console.log('WebNavigation intercepted payment URL (token):', token);
+      handlePaymentInterception(details.tabId, token, 'token', details.url);
+    }
+  }
+  // 类型2: /paying?order_no=xxx (merchant payment)
+  else if (url.pathname === '/paying' && url.searchParams.has('order_no')) {
+    const orderNo = url.searchParams.get('order_no');
+    if (orderNo && !processingTokens.has(orderNo)) {
+      console.log('WebNavigation intercepted payment URL (order_no):', orderNo);
+      handlePaymentInterception(details.tabId, orderNo, 'order_no', details.url);
     }
   }
 }, {
-  url: [{ urlMatches: 'https://credit.linux.do/paying/online.*' }]
+  url: [
+    { urlMatches: 'https://credit.linux.do/paying/online.*' },
+    { urlMatches: 'https://credit.linux.do/paying\\?order_no=.*' }
+  ]
 });
 
 // 备用方法：同时监听 tabs.onUpdated
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url && changeInfo.url.startsWith('https://credit.linux.do/paying/online')) {
-    const url = new URL(changeInfo.url);
-    const token = url.searchParams.get('token');
+  if (!changeInfo.url) return;
 
+  const url = new URL(changeInfo.url);
+
+  // 明确区分两种类型的支付链接
+  // 类型1: /paying/online?token=xxx (payment-links)
+  if (url.pathname === '/paying/online' && url.searchParams.has('token')) {
+    const token = url.searchParams.get('token');
     if (token && !processingTokens.has(token)) {
-      console.log('Tabs.onUpdated intercepted payment URL:', token);
-      // 拦截并处理支付
-      handlePaymentInterception(tabId, token, changeInfo.url);
+      console.log('Tabs.onUpdated intercepted payment URL (token):', token);
+      handlePaymentInterception(tabId, token, 'token', changeInfo.url);
+    }
+  }
+  // 类型2: /paying?order_no=xxx (merchant payment)
+  else if (url.pathname === '/paying' && url.searchParams.has('order_no')) {
+    const orderNo = url.searchParams.get('order_no');
+    if (orderNo && !processingTokens.has(orderNo)) {
+      console.log('Tabs.onUpdated intercepted payment URL (order_no):', orderNo);
+      handlePaymentInterception(tabId, orderNo, 'order_no', changeInfo.url);
     }
   }
 });
 
-async function handlePaymentInterception(tabId, token, originalUrl) {
-  // 防止重复处理同一个 token
-  if (processingTokens.has(token)) {
-    console.log('⏭️ Token already being processed, skipping:', token);
+async function handlePaymentInterception(tabId, identifier, type, originalUrl) {
+  // 防止重复处理同一个 identifier (token or order_no)
+  if (processingTokens.has(identifier)) {
+    console.log('⏭️ Identifier already being processed, skipping:', identifier);
+    return;
+  }
+
+  // 验证类型和标识符匹配
+  if (type === 'token') {
+    console.log('📝 Processing TOKEN payment:', identifier);
+  } else if (type === 'order_no') {
+    console.log('📝 Processing ORDER_NO payment:', identifier);
+  } else {
+    console.error('❌ Unknown payment type:', type);
     return;
   }
 
   // 标记为处理中
-  processingTokens.add(token);
+  processingTokens.add(identifier);
 
   try {
-    console.log('🔥 Intercepting payment:', token);
+    console.log('🔥 Intercepting payment:', identifier, 'type:', type);
 
-    // 获取支付信息
+    // 获取流转信息
     console.log('Fetching payment info...');
-    const paymentInfo = await fetchPaymentInfo(token);
+    const paymentInfo = await fetchPaymentInfo(identifier, type);
     console.log('Payment info:', paymentInfo);
 
     // 保存到storage
     await chrome.storage.local.set({
       pendingPayment: {
-        token,
+        identifier,
+        type,
         info: paymentInfo,
         originalUrl,
         tabId,
@@ -74,7 +110,7 @@ async function handlePaymentInterception(tabId, token, originalUrl) {
     });
     console.log('Payment info saved to storage');
 
-    // 安全地关闭原支付页面标签
+    // 安全地关闭原流转页面标签
     try {
       // 先检查标签页是否存在
       const tab = await chrome.tabs.get(tabId);
@@ -87,9 +123,13 @@ async function handlePaymentInterception(tabId, token, originalUrl) {
       console.log('⚠️ Could not close tab (may already be closed):', tabError.message);
     }
 
-    // 打开支付窗口
+    // 根据类型打开不同的流转窗口
+    const windowUrl = type === 'order_no'
+      ? chrome.runtime.getURL('payment-order.html')
+      : chrome.runtime.getURL('payment-window.html');
+
     await chrome.windows.create({
-      url: chrome.runtime.getURL('payment-window.html'),
+      url: windowUrl,
       type: 'popup',
       width: 400,
       height: 650,
@@ -100,8 +140,8 @@ async function handlePaymentInterception(tabId, token, originalUrl) {
     chrome.notifications.create('payment-ready', {
       type: 'basic',
       iconUrl: 'icon/icon128.png',
-      title: '支付窗口已打开',
-      message: `请在弹窗中完成 LDC ${paymentInfo.amount || '0.00'} 的支付`,
+      title: '流转窗口已打开',
+      message: `请在弹窗中完成 LDC ${paymentInfo.order?.amount || paymentInfo.amount || '0.00'} 的流转`,
       priority: 2
     });
 
@@ -114,15 +154,40 @@ async function handlePaymentInterception(tabId, token, originalUrl) {
     chrome.notifications.create('payment-error', {
       type: 'basic',
       iconUrl: 'icon/icon128.png',
-      title: '支付加载失败',
-      message: error.message || '无法加载支付信息',
+      title: '流转加载失败',
+      message: error.message || '无法加载流转信息',
       priority: 2
     });
   } finally {
     // 5秒后移除处理标志，允许重试
     setTimeout(() => {
-      processingTokens.delete(token);
+      processingTokens.delete(identifier);
     }, 5000);
+  }
+}
+
+// ============================================
+// CloudFlare Cookies 获取函数
+// ============================================
+async function getCFCookies() {
+  try {
+    // Get CloudFlare related cookies for credit.linux.do
+    const cookies = await chrome.cookies.getAll({
+      domain: '.linux.do'
+    });
+
+    // Filter CloudFlare cookies (cf_clearance, __cflb, __cf_bm, etc.)
+    const cfCookies = cookies.filter(cookie =>
+      cookie.name.startsWith('cf_') ||
+      cookie.name.startsWith('__cf') ||
+      cookie.name === '_cfuvid'
+    );
+
+    // Build cookie string
+    return cfCookies.map(c => `${c.name}=${c.value}`).join('; ');
+  } catch (error) {
+    console.error('Failed to get CF cookies:', error);
+    return '';
   }
 }
 
@@ -184,9 +249,40 @@ function isExpired(cookie) {
 // ============================================
 // 4. API 调用函数
 // ============================================
-async function fetchPaymentInfo(token) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/merchant/payment-links/${token}`, {
-    credentials: 'include'
+async function fetchPaymentInfo(identifier, type) {
+  let url, apiDescription;
+
+  // 严格区分两种类型，使用不同的 API 端点
+  if (type === 'token') {
+    // 类型1: payment-links API (旧的支付链接方式)
+    url = `${API_BASE_URL}/api/v1/merchant/payment-links/${identifier}`;
+    apiDescription = 'Payment Links API (token)';
+  } else if (type === 'order_no') {
+    // 类型2: merchant payment order API (新的订单号方式)
+    const encodedOrderNo = encodeURIComponent(identifier);
+    url = `${API_BASE_URL}/api/v1/merchant/payment/order?order_no=${encodedOrderNo}`;
+    apiDescription = 'Merchant Payment Order API (order_no)';
+  } else {
+    throw new Error(`Unknown payment type: ${type}`);
+  }
+
+  console.log(`📡 Calling ${apiDescription}:`, url);
+
+  // Get CloudFlare cookies
+  const cfCookies = await getCFCookies();
+
+  const headers = {
+    'Accept': 'application/json'
+  };
+
+  if (cfCookies) {
+    headers['Cookie'] = cfCookies;
+    console.log('🍪 CloudFlare cookies attached:', cfCookies.substring(0, 50) + '...');
+  }
+
+  const response = await fetch(url, {
+    credentials: 'include',
+    headers: headers
   });
 
   if (!response.ok) {
@@ -194,13 +290,38 @@ async function fetchPaymentInfo(token) {
   }
 
   const result = await response.json();
-  return result.data;
+
+  // Handle different response formats
+  if (type === 'order_no') {
+    // For order_no API, check error_msg field
+    if (result.error_msg) {
+      throw new Error(result.error_msg);
+    }
+    console.log('✅ Order info fetched successfully');
+    return result.data;
+  } else if (type === 'token') {
+    // For token API, data is directly in result.data
+    console.log('✅ Payment link info fetched successfully');
+    return result.data;
+  }
 }
 
 async function fetchUserInfo() {
   try {
+    // Get CloudFlare cookies
+    const cfCookies = await getCFCookies();
+
+    const headers = {
+      'Accept': 'application/json'
+    };
+
+    if (cfCookies) {
+      headers['Cookie'] = cfCookies;
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/v1/oauth/user-info`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: headers
     });
 
     if (!response.ok) return null;
@@ -214,11 +335,20 @@ async function fetchUserInfo() {
 
 async function fetchTransactions(page = 1, pageSize = 20) {
   try {
+    // Get CloudFlare cookies
+    const cfCookies = await getCFCookies();
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (cfCookies) {
+      headers['Cookie'] = cfCookies;
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/v1/order/transactions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       credentials: 'include',
       body: JSON.stringify({
         page,
@@ -237,20 +367,136 @@ async function fetchTransactions(page = 1, pageSize = 20) {
 }
 
 async function processPayment(paymentData) {
-  const { token, payKey, remark } = paymentData;
+  const { identifier, type, payKey, remark } = paymentData;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/merchant/payment-links/pay`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        token,
+    // Get CloudFlare cookies
+    const cfCookies = await getCFCookies();
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (cfCookies) {
+      headers['Cookie'] = cfCookies;
+    }
+
+    let apiUrl, requestBody, apiDescription;
+
+    // 严格区分两种类型，使用不同的 API 端点
+    if (type === 'order_no') {
+      // 类型2: merchant payment order (新的订单号支付方式)
+      apiUrl = `${API_BASE_URL}/api/v1/merchant/payment/pay`;
+      requestBody = {
+        order_no: identifier,
         pay_key: payKey,
         remark: remark || ''
-      })
+      };
+      apiDescription = 'Merchant Payment API (order_no)';
+    } else if (type === 'token') {
+      // 类型1: payment-links (旧的支付链接方式)
+      apiUrl = `${API_BASE_URL}/api/v1/merchant/payment-links/pay`;
+      requestBody = {
+        token: identifier,
+        pay_key: payKey,
+        remark: remark || ''
+      };
+      apiDescription = 'Payment Links API (token)';
+    } else {
+      // 兼容旧代码：如果没有 type，尝试从 paymentData 中获取 token
+      if (paymentData.token) {
+        apiUrl = `${API_BASE_URL}/api/v1/merchant/payment-links/pay`;
+        requestBody = {
+          token: paymentData.token,
+          pay_key: payKey,
+          remark: remark || ''
+        };
+        apiDescription = 'Payment Links API (fallback)';
+        console.warn('⚠️ Using fallback token-based payment (no type specified)');
+      } else {
+        throw new Error('Unknown payment type and no fallback token found');
+      }
+    }
+
+    console.log(`📡 Processing payment via ${apiDescription}:`, apiUrl);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: JSON.stringify(requestBody)
+    });
+
+    const result = await response.json();
+
+    // 判断流转成功：error_msg 为空字符串表示成功
+    if (result.error_msg === "" || !result.error_msg) {
+      // 保存交易记录
+      if (result.data) {
+        await saveTransaction(result.data);
+      }
+
+      return {
+        success: true,
+        data: result.data || {}
+      };
+    } else {
+      // error_msg 有内容，表示流转失败
+      const errorMsg = result.error_msg;
+      const errorCode = result.code;
+
+      // 根据错误码提供更友好的错误提示
+      let friendlyMsg = errorMsg;
+      if (errorCode === 10007) {
+        friendlyMsg = '流转密码错误，请重新输入';
+      } else if (errorCode === 10005) {
+        friendlyMsg = '余额不足，请先充值';
+      } else if (errorCode === 10008) {
+        friendlyMsg = '订单已过期';
+      } else if (errorCode === 10009) {
+        friendlyMsg = '已超出每日限额';
+      }
+
+      throw new Error(friendlyMsg);
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message || '网络错误，请稍后重试'
+    };
+  }
+}
+
+// 专门用于 order_no 类型的订单支付
+async function processOrderPayment(paymentData) {
+  const { order_no, payKey } = paymentData;
+
+  try {
+    // Get CloudFlare cookies
+    const cfCookies = await getCFCookies();
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (cfCookies) {
+      headers['Cookie'] = cfCookies;
+    }
+
+    const apiUrl = `${API_BASE_URL}/api/v1/merchant/payment`;
+    const requestBody = {
+      order_no: order_no,
+      pay_key: payKey
+      // 注意：order_no 类型的支付不包含 remark 字段
+    };
+
+    console.log(`📡 Processing order payment via Merchant Payment API:`, apiUrl);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: JSON.stringify(requestBody)
     });
 
     const result = await response.json();
@@ -297,6 +543,9 @@ async function processTransfer(transferData) {
   const { recipientUsername, recipientUserId, amount, payKey, remark } = transferData;
 
   try {
+    // Get CloudFlare cookies
+    const cfCookies = await getCFCookies();
+
     // 构建请求体
     const requestBody = {
       recipient_username: recipientUsername,
@@ -310,11 +559,17 @@ async function processTransfer(transferData) {
       requestBody.recipient_id = recipientUserId;
     }
 
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (cfCookies) {
+      headers['Cookie'] = cfCookies;
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/v1/payment/transfer`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       credentials: 'include',
       body: JSON.stringify(requestBody)
     });
@@ -340,7 +595,7 @@ async function processTransfer(transferData) {
       // 根据错误码提供更友好的错误提示
       let friendlyMsg = errorMsg;
       if (errorCode === 10007) {
-        friendlyMsg = '支付密码错误，请重新输入';
+        friendlyMsg = '流转密码错误，请重新输入';
       } else if (errorCode === 10005) {
         friendlyMsg = '余额不足，请先充值';
       } else if (errorCode === 10008) {
@@ -566,6 +821,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'processPayment':
       processPayment(data).then(sendResponse);
+      return true;
+
+    case 'processOrderPayment':
+      processOrderPayment(data).then(sendResponse);
       return true;
 
     case 'processTransfer':

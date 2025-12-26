@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "LINUX DO Credit Payment",
-  "version": "0.0.0",
-  "description": "轻量级 LINUX DO Credit 支付插件",
+  "version": "1.1.1",
+  "description": "轻量级 LINUX DO Credit 流转插件",
   "permissions": [
     "storage",
     "tabs",
     "cookies",
     "webNavigation",
+    "webRequest",
     "scripting",
     "alarms",
     "notifications"

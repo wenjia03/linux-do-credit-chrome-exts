@@ -20,11 +20,11 @@ class PaymentSidebar {
         this.paymentData = response;
         this.displayPaymentInfo(response.info);
       } else {
-        this.showError('无法加载支付信息');
+        this.showError('无法加载流转信息');
       }
     } catch (error) {
       console.error('Failed to load payment data:', error);
-      this.showError('加载支付信息失败');
+      this.showError('加载流转信息失败');
     }
   }
 
@@ -61,7 +61,7 @@ class PaymentSidebar {
       this.togglePasswordVisibility();
     });
 
-    // 支付按钮
+    // 流转按钮
     document.getElementById('payButton')?.addEventListener('click', () => {
       this.processPayment();
     });
@@ -71,7 +71,7 @@ class PaymentSidebar {
       this.closePayment();
     });
 
-    // Enter 键支付
+    // Enter 键流转
     document.getElementById('payKey')?.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         this.processPayment();
@@ -156,7 +156,7 @@ class PaymentSidebar {
 
     // 验证密码
     if (!/^\d{6}$/.test(payKey)) {
-      this.showError('请输入6位数字支付密码');
+      this.showError('请输入6位数字流转密码');
       return;
     }
 
@@ -176,7 +176,7 @@ class PaymentSidebar {
       if (response.success) {
         this.showSuccess(response.data);
       } else {
-        throw new Error(response.error || '支付失败');
+        throw new Error(response.error || '流转失败');
       }
     } catch (error) {
       this.showError(error.message);
@@ -203,7 +203,7 @@ class PaymentSidebar {
   }
 
   showSuccess(data) {
-    // 隐藏支付表单
+    // 隐藏流转表单
     document.getElementById('paymentForm').style.display = 'none';
     document.getElementById('errorScreen').style.display = 'none';
 
@@ -213,7 +213,7 @@ class PaymentSidebar {
 
     // 设置消息
     const messageEl = document.getElementById('successMessage');
-    messageEl.textContent = `支付成功`;
+    messageEl.textContent = `流转成功`;
 
     // 检查重定向
     const redirectUrl = data.redirect_url || data.return_url;
@@ -233,7 +233,7 @@ class PaymentSidebar {
       document.getElementById('redirectSection').style.display = 'none';
       document.getElementById('closeSuccessBtn').style.display = 'block';
 
-      // 清除待支付状态
+      // 清除待流转状态
       chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
     }
 
@@ -296,7 +296,7 @@ class PaymentSidebar {
       });
     }
 
-    // 清除待支付状态
+    // 清除待流转状态
     chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
 
     // 关闭侧边栏
@@ -308,7 +308,7 @@ class PaymentSidebar {
       clearTimeout(this.redirectTimer);
     }
 
-    // 清除待支付状态
+    // 清除待流转状态
     chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
 
     // 显示完成按钮
@@ -317,7 +317,7 @@ class PaymentSidebar {
   }
 
   closePayment() {
-    // 清除待支付状态
+    // 清除待流转状态
     chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
 
     // 关闭侧边栏(如果可能)

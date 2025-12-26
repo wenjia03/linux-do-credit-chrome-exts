@@ -779,7 +779,7 @@ class LDOCreditPopup {
 
   getStatusName(status) {
     const statusMap = {
-      'pending': '待支付',
+      'pending': '待流转',
       'success': '成功',
       'failed': '失败',
       'expired': '已过期',
@@ -965,7 +965,7 @@ class LDOCreditPopup {
       payKey = document.getElementById('transferPayKey')?.value.trim();
 
       if (!/^\d{6}$/.test(payKey)) {
-        this.showStatus('请输入6位数字支付密码', 'error');
+        this.showStatus('请输入6位数字流转密码', 'error');
         return;
       }
 

@@ -8,14 +8,20 @@ class PaymentInterceptor {
   init() {
     // Listen to web navigation events
     chrome.webNavigation.onBeforeNavigate.addListener(this.handleNavigation.bind(this), {
-      url: [{ hostEquals: 'credit.linux.do', pathPrefix: '/paying/online' }]
+      url: [
+        { hostEquals: 'credit.linux.do', pathPrefix: '/paying/online' },
+        { hostEquals: 'credit.linux.do', pathPrefix: '/paying' }
+      ]
     });
 
     // Listen to web requests
     chrome.webRequest.onBeforeRequest.addListener(
       this.handleRequest.bind(this),
       {
-        urls: ['*://credit.linux.do/paying/online*'],
+        urls: [
+          '*://credit.linux.do/paying/online*',
+          '*://credit.linux.do/paying?order_no=*'
+        ],
         types: ['main_frame']
       },
       ['blocking']
@@ -26,40 +32,55 @@ class PaymentInterceptor {
   }
 
   handleNavigation(details) {
-    // Extract token from URL
+    if (details.frameId !== 0) return;
+
     const url = new URL(details.url);
-    const token = url.searchParams.get('token');
 
-    if (token && details.frameId === 0) {
-      // Cancel the navigation
-      chrome.tabs.update(details.tabId, { url: 'about:blank' });
-
-      // Process the payment in sidebar
-      this.processPaymentInSidebar(token);
+    // 明确区分两种类型的支付链接
+    // 类型1: /paying/online?token=xxx (payment-links)
+    if (url.pathname === '/paying/online' && url.searchParams.has('token')) {
+      const token = url.searchParams.get('token');
+      if (token) {
+        chrome.tabs.update(details.tabId, { url: 'about:blank' });
+        this.processPaymentInSidebar(token, 'token');
+      }
+    }
+    // 类型2: /paying?order_no=xxx (merchant payment)
+    else if (url.pathname === '/paying' && url.searchParams.has('order_no')) {
+      const orderNo = url.searchParams.get('order_no');
+      if (orderNo) {
+        chrome.tabs.update(details.tabId, { url: 'about:blank' });
+        this.processPaymentInSidebar(orderNo, 'order_no');
+      }
     }
   }
 
   handleRequest(details) {
     const url = new URL(details.url);
-    const token = url.searchParams.get('token');
 
-    if (token) {
-      // Cancel the request
+    // 明确区分两种类型的支付请求
+    // 类型1: /paying/online?token=xxx
+    const isTokenPayment = url.pathname === '/paying/online' && url.searchParams.has('token');
+    // 类型2: /paying?order_no=xxx
+    const isOrderNoPayment = url.pathname === '/paying' && url.searchParams.has('order_no');
+
+    if (isTokenPayment || isOrderNoPayment) {
       return { cancel: true };
     }
 
     return {};
   }
 
-  async processPaymentInSidebar(token) {
+  async processPaymentInSidebar(identifier, type) {
     try {
       // Get payment information
-      const paymentInfo = await this.getPaymentInfo(token);
+      const paymentInfo = await this.getPaymentInfo(identifier, type);
 
       // Store payment info for sidebar
       await chrome.storage.local.set({
         pendingPayment: {
-          token,
+          identifier,
+          type,
           info: paymentInfo,
           timestamp: Date.now()
         }
@@ -75,22 +96,70 @@ class PaymentInterceptor {
         });
       } else {
         // Fallback to popup window
-        this.openPaymentPopup(token);
+        this.openPaymentPopup(identifier);
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icons/icon48.png',
-        title: '支付处理失败',
-        message: '无法加载支付信息: ' + error.message
+        title: '流转处理失败',
+        message: '无法加载流转信息: ' + error.message
       });
     }
   }
 
-  async getPaymentInfo(token) {
-    const response = await fetch(`https://credit.linux.do/api/v1/payment-links/${token}`, {
-      credentials: 'include'
+  async getCFCookies() {
+    // Get CloudFlare related cookies for credit.linux.do
+    const cookies = await chrome.cookies.getAll({
+      domain: '.linux.do'
+    });
+
+    // Filter CloudFlare cookies (cf_clearance, __cflb, __cf_bm, etc.)
+    const cfCookies = cookies.filter(cookie =>
+      cookie.name.startsWith('cf_') ||
+      cookie.name.startsWith('__cf') ||
+      cookie.name === '_cfuvid'
+    );
+
+    // Build cookie string
+    return cfCookies.map(c => `${c.name}=${c.value}`).join('; ');
+  }
+
+  async getPaymentInfo(identifier, type) {
+    let url, apiDescription;
+
+    // 严格区分两种类型，使用不同的 API 端点
+    if (type === 'token') {
+      // 类型1: payment-links API (旧的支付链接方式)
+      url = `https://credit.linux.do/api/v1/merchant/payment-links/${identifier}`;
+      apiDescription = 'Payment Links API (token)';
+    } else if (type === 'order_no') {
+      // 类型2: merchant payment order API (新的订单号方式)
+      const encodedOrderNo = encodeURIComponent(identifier);
+      url = `https://credit.linux.do/api/v1/merchant/payment/order?order_no=${encodedOrderNo}`;
+      apiDescription = 'Merchant Payment Order API (order_no)';
+    } else {
+      throw new Error(`Unknown payment type: ${type}`);
+    }
+
+    console.log(`[PaymentInterceptor] 📡 Calling ${apiDescription}:`, url);
+
+    // Get CloudFlare cookies
+    const cfCookies = await this.getCFCookies();
+
+    const headers = {
+      'Accept': 'application/json'
+    };
+
+    if (cfCookies) {
+      headers['Cookie'] = cfCookies;
+      console.log('[PaymentInterceptor] 🍪 CloudFlare cookies attached');
+    }
+
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: headers
     });
 
     if (!response.ok) {
@@ -98,7 +167,20 @@ class PaymentInterceptor {
     }
 
     const result = await response.json();
-    return result.data;
+
+    // Handle different response formats
+    if (type === 'order_no') {
+      // For order_no API, check error_msg field
+      if (result.error_msg) {
+        throw new Error(result.error_msg);
+      }
+      console.log('[PaymentInterceptor] ✅ Order info fetched successfully');
+      return result.data;
+    } else if (type === 'token') {
+      // For token API, data is directly in result.data
+      console.log('[PaymentInterceptor] ✅ Payment link info fetched successfully');
+      return result.data;
+    }
   }
 
   handlePaymentMessage(message, sender, sendResponse) {
@@ -115,7 +197,7 @@ class PaymentInterceptor {
   }
 
   async handleUserPayment(data) {
-    const { token, payKey, rememberPassword } = data;
+    const { identifier, type, payKey, rememberPassword } = data;
 
     try {
       // Store payment password if remember is checked
@@ -123,17 +205,49 @@ class PaymentInterceptor {
         await this.storePaymentPassword(payKey);
       }
 
-      // Process payment
-      const response = await fetch('https://credit.linux.do/api/v1/merchant/payment-links/pay', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          token,
+      // Get CloudFlare cookies
+      const cfCookies = await this.getCFCookies();
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (cfCookies) {
+        headers['Cookie'] = cfCookies;
+      }
+
+      let apiUrl, requestBody, apiDescription;
+
+      // 严格区分两种类型，使用不同的 API 端点
+      if (type === 'order_no') {
+        // 类型2: merchant payment order (新的订单号支付方式)
+        apiUrl = 'https://credit.linux.do/api/v1/merchant/payment/pay';
+        requestBody = {
+          order_no: identifier,
           pay_key: payKey,
           remark: data.remark || ''
-        }),
+        };
+        apiDescription = 'Merchant Payment API (order_no)';
+      } else if (type === 'token') {
+        // 类型1: payment-links (旧的支付链接方式)
+        apiUrl = 'https://credit.linux.do/api/v1/merchant/payment-links/pay';
+        requestBody = {
+          token: identifier,
+          pay_key: payKey,
+          remark: data.remark || ''
+        };
+        apiDescription = 'Payment Links API (token)';
+      } else {
+        throw new Error(`Unknown payment type: ${type}`);
+      }
+
+      console.log(`[PaymentInterceptor] 📡 Processing payment via ${apiDescription}:`, apiUrl);
+
+      // Process payment
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody),
         credentials: 'include'
       });
 

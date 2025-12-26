@@ -124,12 +124,12 @@
 
         <div class="card">
           <div class="card-header">
-            <h3>支付密码管理</h3>
+            <h3>流转密码管理</h3>
           </div>
           <div class="card-body">
             <div class="setting-item">
               <div class="setting-info">
-                <div class="setting-label">记住支付密码</div>
+                <div class="setting-label">记住流转密码</div>
                 <div class="setting-desc">使用生物识别安全存储密码</div>
               </div>
               <label class="toggle-switch">
@@ -140,7 +140,7 @@
 
             <div id="passwordSection" style="display: none;">
               <div class="form-group">
-                <label for="paymentPassword">支付密码 (6位数字)</label>
+                <label for="paymentPassword">流转密码 (6位数字)</label>
                 <div class="input-group">
                   <input
                     type="password"
@@ -180,7 +180,7 @@
           <div class="card-body">
             <div class="about-info">
               <p><strong>版本:</strong> <span id="currentVersionDisplay">--</span></p>
-              <p><strong>描述:</strong> 轻量级 LINUX DO Credit 支付插件</p>
+              <p><strong>描述:</strong> 轻量级 LINUX DO Credit 流转插件</p>
               <button id="checkUpdateBtn" class="btn btn-secondary full-width" style="margin-top: 12px;">检查更新</button>
             </div>
           </div>
@@ -264,13 +264,13 @@
           </div>
 
           <div id="transferPasswordSection" class="form-group">
-            <label for="transferPayKey">支付密码 (6位数字) *</label>
+            <label for="transferPayKey">流转密码 (6位数字) *</label>
             <div class="input-group">
               <input
                 type="password"
                 id="transferPayKey"
                 class="input"
-                placeholder="请输入支付密码"
+                placeholder="请输入流转密码"
                 maxlength="6"
                 pattern="[0-9]{6}"
                 required>

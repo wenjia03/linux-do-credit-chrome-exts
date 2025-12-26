@@ -1,5 +1,5 @@
-// Payment Window JavaScript
-class PaymentWindow {
+// Order Payment Window JavaScript
+class OrderPaymentWindow {
   constructor() {
     this.paymentData = null;
     this.isProcessing = false;
@@ -19,60 +19,45 @@ class PaymentWindow {
 
       if (response && response.info) {
         this.paymentData = response;
-        this.displayPaymentInfo(response.info);
+        this.displayOrderInfo(response.info);
       } else {
-        this.showError('无法加载流转信息');
+        this.showError('无法加载订单信息');
       }
     } catch (error) {
       console.error('Failed to load payment data:', error);
-      this.showError('加载流转信息失败');
+      this.showError('加载订单信息失败');
     }
   }
 
-  displayPaymentInfo(info) {
-    // 判断数据类型
-    const isOrderType = info.order !== undefined;
+  displayOrderInfo(info) {
+    console.log('[OrderPaymentWindow] Order info:', info);
 
-    // 更新金额
+    // 订单号
+    const orderNoEl = document.getElementById('orderNo');
+    if (orderNoEl) {
+      orderNoEl.textContent = info.order?.order_no || this.paymentData.identifier || '--';
+    }
+
+    // 订单名称
+    const orderNameEl = document.getElementById('orderName');
+    if (orderNameEl) {
+      orderNameEl.textContent = info.order?.order_name || '--';
+    }
+
+    // 服务方
+    const merchantNameEl = document.getElementById('merchantName');
+    if (merchantNameEl) {
+      merchantNameEl.textContent = info.merchant?.app_name || '--';
+    }
+
+    // 金额
     const amountEl = document.getElementById('paymentAmount');
     if (amountEl) {
-      let amount;
-      if (isOrderType) {
-        // order_no 类型：数据在 info.order 中
-        amount = info.order?.amount || info.amount || '0.00';
-      } else {
-        // token 类型：数据直接在 info 中
-        amount = info.amount || info.money || '0.00';
-      }
+      const amount = info.order?.amount || '0.00';
       amountEl.textContent = amount.toString();
-      console.log('[PaymentWindow] Amount:', amount);
     }
 
-    // 更新商品名称
-    const productNameEl = document.getElementById('productName');
-    if (productNameEl) {
-      let productName;
-      if (isOrderType) {
-        // order_no 类型：订单名称
-        productName = info.order?.order_name || '商品/服务';
-      } else {
-        // token 类型：产品名称
-        productName = info.product_name || info.name || '商品/服务';
-      }
-      productNameEl.textContent = productName;
-      console.log('[PaymentWindow] Product Name:', productName);
-    }
-
-    // 如果有备注，自动填充
-    const remarkValue = isOrderType ? info.order?.remark : info.remark;
-    if (remarkValue) {
-      const remarkEl = document.getElementById('remark');
-      if (remarkEl) {
-        remarkEl.value = remarkValue;
-      }
-    }
-
-    console.log('[PaymentWindow] Payment info displayed. Type:', isOrderType ? 'order_no' : 'token');
+    console.log('[OrderPaymentWindow] Order info displayed');
   }
 
   setupEventListeners() {
@@ -86,7 +71,7 @@ class PaymentWindow {
       this.togglePasswordVisibility();
     });
 
-    // 流转按钮
+    // 支付按钮
     document.getElementById('payButton')?.addEventListener('click', () => {
       this.processPayment();
     });
@@ -96,7 +81,7 @@ class PaymentWindow {
       this.closePayment();
     });
 
-    // Enter 键流转
+    // Enter 键支付
     document.getElementById('payKey')?.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         this.processPayment();
@@ -136,20 +121,19 @@ class PaymentWindow {
       this.hasStoredPassword = !!hasStoredPassword;
 
       if (hasStoredPassword) {
-        // 隐藏密码输入表单，只显示流转按钮
+        // 隐藏密码输入表单，只显示支付按钮
         const passwordGroup = document.querySelector('.form-group:has(#payKey)');
-        const remarkGroup = document.querySelector('.form-group:has(#remark)');
 
         if (passwordGroup) {
           passwordGroup.style.display = 'none';
         }
 
-        // 更新流转按钮文本
+        // 更新支付按钮文本
         const payButton = document.getElementById('payButton');
         if (payButton) {
           const buttonText = payButton.querySelector('.button-text');
           if (buttonText) {
-            buttonText.textContent = '验证并流转';
+            buttonText.textContent = '验证并支付';
           }
         }
 
@@ -188,7 +172,6 @@ class PaymentWindow {
     if (this.isProcessing) return;
 
     let payKey;
-    const remark = document.getElementById('remark')?.value.trim() || '';
 
     // 如果保存了密码，先通过 WebAuthn 验证并获取密码
     if (this.hasStoredPassword) {
@@ -251,7 +234,7 @@ class PaymentWindow {
 
       // 验证密码
       if (!/^\d{6}$/.test(payKey)) {
-        this.showError('请输入6位数字流转密码');
+        this.showError('请输入6位数字支付密码');
         return;
       }
 
@@ -259,26 +242,22 @@ class PaymentWindow {
       this.setButtonLoading(true);
     }
 
-    // 执行流转
+    // 执行支付
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'processPayment',
+        action: 'processOrderPayment',
         data: {
-          identifier: this.paymentData.identifier,
-          type: this.paymentData.type,
-          // 向后兼容：如果没有 identifier，使用 token
-          token: this.paymentData.token,
-          payKey: payKey,
-          remark: remark
+          order_no: this.paymentData.identifier,
+          payKey: payKey
         }
       });
 
-      console.log('[PaymentWindow] Payment response:', response);
+      console.log('[OrderPaymentWindow] Payment response:', response);
 
       if (response.success) {
         this.showSuccess(response.data);
       } else {
-        throw new Error(response.error || '流转失败');
+        throw new Error(response.error || '支付失败');
       }
     } catch (error) {
       this.showError(error.message);
@@ -342,9 +321,9 @@ class PaymentWindow {
     } else {
       payButton.disabled = false;
       if (this.hasStoredPassword) {
-        buttonText.textContent = '验证并流转';
+        buttonText.textContent = '验证并支付';
       } else {
-        buttonText.textContent = '确认流转';
+        buttonText.textContent = '确认支付';
       }
       buttonText.style.display = 'inline';
       spinner.style.display = 'none';
@@ -352,7 +331,7 @@ class PaymentWindow {
   }
 
   showSuccess(data) {
-    // 隐藏流转表单
+    // 隐藏支付表单
     document.getElementById('paymentForm').style.display = 'none';
     document.getElementById('errorScreen').style.display = 'none';
 
@@ -382,7 +361,7 @@ class PaymentWindow {
       document.getElementById('redirectSection').style.display = 'none';
       document.getElementById('closeSuccessBtn').style.display = 'block';
 
-      // 清除待流转状态
+      // 清除待支付状态
       chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
     }
 
@@ -419,7 +398,10 @@ class PaymentWindow {
     document.getElementById('errorScreen').style.display = 'none';
 
     // 清空密码
-    document.getElementById('payKey').value = '';
+    const payKeyInput = document.getElementById('payKey');
+    if (payKeyInput) {
+      payKeyInput.value = '';
+    }
   }
 
   shouldIgnoreRedirect(url) {
@@ -445,7 +427,7 @@ class PaymentWindow {
       });
     }
 
-    // 清除待流转状态
+    // 清除待支付状态
     chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
 
     // 关闭窗口
@@ -457,7 +439,7 @@ class PaymentWindow {
       clearTimeout(this.redirectTimer);
     }
 
-    // 清除待流转状态
+    // 清除待支付状态
     chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
 
     // 显示完成按钮
@@ -466,7 +448,7 @@ class PaymentWindow {
   }
 
   closePayment() {
-    // 清除待流转状态
+    // 清除待支付状态
     chrome.runtime.sendMessage({ action: 'clearPendingPayment' });
 
     // 关闭窗口
@@ -476,5 +458,5 @@ class PaymentWindow {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-  new PaymentWindow();
+  new OrderPaymentWindow();
 });

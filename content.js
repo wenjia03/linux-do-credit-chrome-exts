@@ -144,7 +144,7 @@ urlObserver.observe(document.body, {
 });
 
 // ============================================
-// 原有的支付相关功能
+// 原有的流转相关功能
 // ============================================
 
 // Create quick payment from selected text
